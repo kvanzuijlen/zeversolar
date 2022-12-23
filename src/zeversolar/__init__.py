@@ -102,6 +102,9 @@ class ZeverSolarParser:
 
 class ZeverSolarClient:
     def __init__(self, host: str):
+        if "http" not in host:
+            # noinspection HttpUrlsUsage
+            host = f"http://{host}"
         self.host = urllib.parse.urlparse(url=host).netloc.strip("/")
         self._timeout = timedelta(seconds=5).total_seconds()
         self._serial_number = MISSING
