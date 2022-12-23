@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ProjectModuleManager">
+    <modules>
+      <module fileurl="file://$PROJECT_DIR$/../justnimbus/.idea/justnimbus.iml" filepath="$PROJECT_DIR$/../justnimbus/.idea/justnimbus.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/zeversolar.iml" filepath="$PROJECT_DIR$/.idea/zeversolar.iml" />
+      <module fileurl="file://$PROJECT_DIR$/../zeversolar-mock-endpoint/.idea/zeversolar-mock-endpoint.iml" filepath="$PROJECT_DIR$/../zeversolar-mock-endpoint/.idea/zeversolar-mock-endpoint.iml" />
+    </modules>
+  </component>
+</project>
