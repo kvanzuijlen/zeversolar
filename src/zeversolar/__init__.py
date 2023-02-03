@@ -7,7 +7,7 @@ from dataclasses import MISSING
 
 import requests
 
-from zeversolar.exceptions import ZeverSolarTimeout, ZeverSolarHTTPError, ZeverSolarHTTPNotFound
+from zeversolar.exceptions import ZeverSolarTimeout, ZeverSolarHTTPError, ZeverSolarHTTPNotFound, ZeverSolarNotSupported
 
 kWh = typing.NewType("kWh", float)
 Watt = typing.NewType("Watt", int)
@@ -26,11 +26,28 @@ class Values(IntEnum):
     SOFTWARE_VERSION = 5  # string
     COMMUNICATION_STATUS = 8  # bool 0-1
     SERIAL_NUMBER = 10  # string
+    REPORTED_TIME = 6  # hh:mm
+    REPORTED_DATE = 7  # dd/mm/yyyy
+
+
+class M10Values(IntEnum):
+    PAC = 12  # WATT
+    ENERGY_TODAY = 13  # kWh
+    STATUS = 14  # enum
+
+    @property
+    def supported_hardware_version(self):
+        return "M10"
+
+
+class M11Values(IntEnum):
     PAC = 11  # WATT
     ENERGY_TODAY = 12  # kWh
     STATUS = 13  # enum
-    REPORTED_TIME = 6  # hh:mm
-    REPORTED_DATE = 7  # dd/mm/yyyy
+
+    @property
+    def supported_hardware_version(self):
+        return "M11"
 
 
 class StatusEnum(Enum):
@@ -57,7 +74,7 @@ class ZeverSolarParser:
     def __init__(self, zeversolar_response: str):
         self.zeversolar_response = zeversolar_response
 
-    def _get_value(self, value: Values) -> str:
+    def _get_value(self, value: IntEnum) -> str:
         response_parts = self.zeversolar_response.split()
         return response_parts[value.value]
 
@@ -69,9 +86,17 @@ class ZeverSolarParser:
         software_version = self._get_value(Values.SOFTWARE_VERSION)
         communication_status = bool(self._get_value(Values.COMMUNICATION_STATUS))
         serial_number = self._get_value(Values.SERIAL_NUMBER)
-        pac = Watt(int(self._get_value(Values.PAC)))
-        energy_today = kWh(self._fix_leading_zero(self._get_value(Values.ENERGY_TODAY)))
-        status = StatusEnum(self._get_value(Values.STATUS))
+
+        if hardware_version.upper() == "M10":
+            hardware_specific_values = M10Values
+        elif hardware_version.upper() == "M11":
+            hardware_specific_values = M11Values
+        else:
+            raise ZeverSolarNotSupported(f"This {hardware_version=} is not yet supported")
+
+        pac = Watt(int(self._get_value(hardware_specific_values.PAC)))
+        energy_today = kWh(self._fix_leading_zero(self._get_value(hardware_specific_values.ENERGY_TODAY)))
+        status = StatusEnum(self._get_value(hardware_specific_values.STATUS))
         reported_time = self._get_value(Values.REPORTED_TIME)
         reported_date = self._get_value(Values.REPORTED_DATE)
 
