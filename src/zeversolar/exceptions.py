@@ -4,6 +4,12 @@ class ZeverSolarError(Exception):
     """
 
 
+class ZeverSolarNotSupported(ZeverSolarError):
+    """
+    Exception thrown when the hardware version is not yet supported
+    """
+
+
 class ZeverSolarTimeout(ZeverSolarError):
     """
     Exception thrown when a timeout occurs
