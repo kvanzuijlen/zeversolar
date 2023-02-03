@@ -70,7 +70,7 @@ class ZeverSolarParser:
         communication_status = bool(self._get_value(Values.COMMUNICATION_STATUS))
         serial_number = self._get_value(Values.SERIAL_NUMBER)
         pac = Watt(int(self._get_value(Values.PAC)))
-        energy_today = float(self._get_value(Values.ENERGY_TODAY))
+        energy_today = kWh(self._fix_leading_zero(self._get_value(Values.ENERGY_TODAY)))
         status = StatusEnum(self._get_value(Values.STATUS))
         reported_time = self._get_value(Values.REPORTED_TIME)
         reported_date = self._get_value(Values.REPORTED_DATE)
@@ -86,18 +86,17 @@ class ZeverSolarParser:
             communication_status=communication_status,
             serial_number=serial_number,
             pac=pac,
-            energy_today=kWh(self._fix_leading_zero(energy_today)),
+            energy_today=energy_today,
             status=status,
             reported_datetime=reported_datetime,
         )
 
     @staticmethod
-    def _fix_leading_zero(value: float) -> float:
-        string_value = str(value)
+    def _fix_leading_zero(string_value: str) -> float:
         split_values = string_value.split(".")
-        if len(decimals := split_values[1]) != 1:
-            return value
-        return float(f"{split_values[0]}.0{decimals}")
+        if len(decimals := split_values[1]) == 1:
+            string_value = f"{split_values[0]}.0{decimals}"
+        return float(string_value)
 
 
 class ZeverSolarClient:
