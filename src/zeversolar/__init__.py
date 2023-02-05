@@ -165,23 +165,28 @@ class ZeverSolarClient:
             host = f"http://{host}"
         self.host = urllib.parse.urlparse(url=host).netloc.strip("/")
         self._timeout = timedelta(seconds=5).total_seconds()
+        self._retries = 3
         self._serial_number = MISSING
 
     def get_data(self) -> ZeverSolarData:
-        response = requests.get(url=f"http://{self.host}/home.cgi", timeout=self._timeout)
-        try:
-            response.raise_for_status()
-        except requests.exceptions.Timeout:
-            raise ZeverSolarTimeout()
-        except requests.exceptions.HTTPError:
-            if response.status_code == 404:
-                raise ZeverSolarHTTPNotFound()
-            raise ZeverSolarHTTPError()
-        try:
-            data = ZeverSolarParser(zeversolar_response=response.text).parse()
-        except ZeverSolarInvalidData:
-            raise
-        return data
+        exception = None
+        for _ in range(self._retries):
+            try:
+                response = requests.get(url=f"http://{self.host}/home.cgi", timeout=self._timeout)
+            except requests.exceptions.Timeout:
+                exception = ZeverSolarTimeout()
+                continue
+            if response.status_code != 200:
+                if response.status_code == 404:
+                    raise ZeverSolarHTTPNotFound()
+                raise ZeverSolarHTTPError()
+            try:
+                data = ZeverSolarParser(zeversolar_response=response.text).parse()
+            except ZeverSolarInvalidData as e:
+                exception = e
+                continue
+            return data
+        raise exception
 
     def power_on(self):
         return self.ctrl_power(mode=PowerMode.ON)
