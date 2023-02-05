@@ -7,7 +7,7 @@ from dataclasses import MISSING
 
 import requests
 
-from zeversolar.exceptions import ZeverSolarTimeout, ZeverSolarHTTPError, ZeverSolarHTTPNotFound, ZeverSolarNotSupported
+from zeversolar.exceptions import ZeverSolarTimeout, ZeverSolarHTTPError, ZeverSolarHTTPNotFound, ZeverSolarInvalidData
 
 kWh = typing.NewType("kWh", float)
 Watt = typing.NewType("Watt", int)
@@ -19,35 +19,17 @@ class PowerMode(IntEnum):
 
 
 class Values(IntEnum):
-    WIFI_ENABLED = 0  # bool 0-1
-    MAC_ADDRESS = 2
-    REGISTRY_KEY = 3  # string
-    HARDWARE_VERSION = 4  # string
-    SOFTWARE_VERSION = 5  # string
-    COMMUNICATION_STATUS = 8  # bool 0-1
-    SERIAL_NUMBER = 10  # string
-    REPORTED_TIME = 6  # hh:mm
-    REPORTED_DATE = 7  # dd/mm/yyyy
-
-
-class M10Values(IntEnum):
-    PAC = 12  # WATT
-    ENERGY_TODAY = 13  # kWh
-    STATUS = 14  # enum
-
-    @property
-    def supported_hardware_version(self):
-        return "M10"
-
-
-class M11Values(IntEnum):
-    PAC = 11  # WATT
-    ENERGY_TODAY = 12  # kWh
-    STATUS = 13  # enum
-
-    @property
-    def supported_hardware_version(self):
-        return "M11"
+    WIFI_ENABLED = 0           # bool (0|1)
+    # ? = 1                    # int
+    SERIAL_OR_REGISTRY_ID = 2  # string
+    REGISTRY_KEY = 3           # string
+    HARDWARE_VERSION = 4       # string
+    SOFTWARE_VERSION = 5       # string
+    REPORTED_TIME = 6          # HH:MM
+    REPORTED_DATE = 7          # DD/MM/YYYY
+    COMMUNICATION_STATUS = 8   # int|OK|error
+    NUM_INVERTERS = 9          # int (0-4)
+    INVERTERS = 10             # start of inverter data
 
 
 class StatusEnum(Enum):
@@ -58,16 +40,17 @@ class StatusEnum(Enum):
 @dataclasses.dataclass
 class ZeverSolarData:
     wifi_enabled: bool
-    mac_address: str
+    serial_or_registry_id: str
     registry_key: str
     hardware_version: str
     software_version: str
+    reported_datetime: datetime
     communication_status: bool
+    num_inverters: int
     serial_number: str
     pac: Watt
     energy_today: kWh
     status: StatusEnum
-    reported_datetime: datetime
 
 
 class ZeverSolarParser:
@@ -77,37 +60,69 @@ class ZeverSolarParser:
     def parse(self) -> ZeverSolarData:
         response_parts = self.zeversolar_response.split()
 
+        if len(response_parts) <= Values.NUM_INVERTERS:
+            raise ZeverSolarInvalidData()
+
+        # TODO: handle exceptions from conversions
         wifi_enabled = bool(response_parts[Values.WIFI_ENABLED])
-        mac_address = response_parts[Values.MAC_ADDRESS]
+        serial_or_registry_id = response_parts[Values.SERIAL_OR_REGISTRY_ID]
         registry_key = response_parts[Values.REGISTRY_KEY]
         hardware_version = response_parts[Values.HARDWARE_VERSION]
         software_version = response_parts[Values.SOFTWARE_VERSION]
-        communication_status = bool(response_parts[Values.COMMUNICATION_STATUS])
-        serial_number = response_parts[Values.SERIAL_NUMBER]
-
-        if hardware_version.upper() == "M10":
-            hardware_specific_values = M10Values
-        elif hardware_version.upper() == "M11":
-            hardware_specific_values = M11Values
-        else:
-            raise ZeverSolarNotSupported(f"This {hardware_version=} is not yet supported")
-
-        pac = Watt(int(response_parts[hardware_specific_values.PAC]))
-        energy_today = kWh(self._fix_leading_zero(response_parts[hardware_specific_values.ENERGY_TODAY]))
-        status = StatusEnum(response_parts[hardware_specific_values.STATUS])
 
         reported_time = response_parts[Values.REPORTED_TIME]
         reported_date = response_parts[Values.REPORTED_DATE]
-
         reported_datetime = datetime.strptime(f"{reported_date} {reported_time}", "%d/%m/%Y %H:%M")
+
+        # TODO: parse ok|error as well as int
+        communication_status = bool(response_parts[Values.COMMUNICATION_STATUS])
+
+        num_inverters = int(response_parts[Values.NUM_INVERTERS])
+        # inverters = {}  # {serial_number: pac,energy_today,status}
+        # for i in range(min(num_inverters, 5)):
+        # Just parsing one inverter for now though
+        if num_inverters < 1:
+            raise ZeverSolarInvalidData()
+
+        if len(response_parts) < Values.INVERTERS + num_inverters*4 + 1:
+            raise ZeverSolarInvalidData()
+
+        index = Values.INVERTERS
+
+        serial_number = response_parts[index]
+        index += 1
+
+        try:
+            pac = Watt(int(response_parts[index]))
+        except ValueError:
+            # ? = response_parts[index]
+            index += 1
+            try:
+                pac = Watt(int(response_parts[index]))
+            except ValueError:
+                raise ZeverSolarInvalidData()
+        index += 1
+
+        energy_today = kWh(self._fix_leading_zero(response_parts[index]))
+        index += 1
+
+        status = StatusEnum(response_parts[index])
+        index += 1
+
+        # We don't necessarily know how many fields in each inverter if more than one
+        # meter_status = StatusEnum(response_parts[index])
+        # index += 1
+        # if len(response_parts) < index + 4:
+        #     raise ZeverSolarInvalidData()
 
         return ZeverSolarData(
             wifi_enabled=wifi_enabled,
-            mac_address=mac_address,
+            serial_or_registry_id=serial_or_registry_id,
             registry_key=registry_key,
             hardware_version=hardware_version,
             software_version=software_version,
             communication_status=communication_status,
+            num_inverters=num_inverters,
             serial_number=serial_number,
             pac=pac,
             energy_today=energy_today,
@@ -142,7 +157,11 @@ class ZeverSolarClient:
             if response.status_code == 404:
                 raise ZeverSolarHTTPNotFound()
             raise ZeverSolarHTTPError()
-        return ZeverSolarParser(zeversolar_response=response.text).parse()
+        try:
+            data = ZeverSolarParser(zeversolar_response=response.text).parse()
+        except ZeverSolarInvalidData:
+            raise
+        return data
 
     def power_on(self):
         return self.ctrl_power(mode=PowerMode.ON)
