@@ -63,7 +63,6 @@ class ZeverSolarParser:
         if len(response_parts) <= Values.NUM_INVERTERS:
             raise ZeverSolarInvalidData()
 
-        # TODO: handle exceptions from conversions
         wifi_enabled = bool(response_parts[Values.WIFI_ENABLED])
         serial_or_registry_id = response_parts[Values.SERIAL_OR_REGISTRY_ID]
         registry_key = response_parts[Values.REGISTRY_KEY]
@@ -72,12 +71,18 @@ class ZeverSolarParser:
 
         reported_time = response_parts[Values.REPORTED_TIME]
         reported_date = response_parts[Values.REPORTED_DATE]
-        reported_datetime = datetime.strptime(f"{reported_date} {reported_time}", "%d/%m/%Y %H:%M")
+        try:
+            reported_datetime = datetime.strptime(f"{reported_date} {reported_time}", "%d/%m/%Y %H:%M")
+        except ValueError:
+            raise ZeverSolarInvalidData()
 
         # TODO: parse ok|error as well as int
         communication_status = bool(response_parts[Values.COMMUNICATION_STATUS])
+        try:
+            num_inverters = int(response_parts[Values.NUM_INVERTERS])
+        except ValueError:
+            raise ZeverSolarInvalidData()
 
-        num_inverters = int(response_parts[Values.NUM_INVERTERS])
         # inverters = {}  # {serial_number: pac,energy_today,status}
         # for i in range(min(num_inverters, 5)):
         # Just parsing one inverter for now though
@@ -103,14 +108,23 @@ class ZeverSolarParser:
                 raise ZeverSolarInvalidData()
         index += 1
 
-        energy_today = kWh(self._fix_leading_zero(response_parts[index]))
+        try:
+            energy_today = kWh(self._fix_leading_zero(response_parts[index]))
+        except ValueError:
+            raise ZeverSolarInvalidData()
         index += 1
 
-        status = StatusEnum(response_parts[index])
+        try:
+            status = StatusEnum(response_parts[index])
+        except ValueError:
+            raise ZeverSolarInvalidData()
         index += 1
 
         # We don't necessarily know how many fields in each inverter if more than one
-        # meter_status = StatusEnum(response_parts[index])
+        # try:
+        #     meter_status = StatusEnum(response_parts[index])
+        # except ValueError:
+        #     raise ZeverSolarInvalidData()
         # index += 1
         # if len(response_parts) < index + 4:
         #     raise ZeverSolarInvalidData()
