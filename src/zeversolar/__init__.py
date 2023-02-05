@@ -63,7 +63,7 @@ class ZeverSolarParser:
         if len(response_parts) <= Values.NUM_INVERTERS:
             raise ZeverSolarInvalidData()
 
-        wifi_enabled = bool(response_parts[Values.WIFI_ENABLED])
+        wifi_enabled = response_parts[Values.WIFI_ENABLED] == "1"
         serial_or_registry_id = response_parts[Values.SERIAL_OR_REGISTRY_ID]
         registry_key = response_parts[Values.REGISTRY_KEY]
         hardware_version = response_parts[Values.HARDWARE_VERSION]
@@ -76,8 +76,14 @@ class ZeverSolarParser:
         except ValueError:
             raise ZeverSolarInvalidData()
 
-        # TODO: parse ok|error as well as int
-        communication_status = bool(response_parts[Values.COMMUNICATION_STATUS])
+        communication_status = response_parts[Values.COMMUNICATION_STATUS]
+        if communication_status.startswith(StatusEnum.OK.value):
+            communication_status = True
+        elif communication_status.startswith(StatusEnum.ERROR.value):
+            communication_status = False
+        else:
+            communication_status = communication_status == "0"
+
         try:
             num_inverters = int(response_parts[Values.NUM_INVERTERS])
         except ValueError:
