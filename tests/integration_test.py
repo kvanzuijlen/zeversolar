@@ -8,12 +8,12 @@ import pytest
         0.0,
     ),
     (
-        "1 0 EAB971770016 GHKXWHTQ3JPQQSVM M11 19703-826R+17511-707R 15:53 06/03/2022 0 1 EL36806011640036 3187 14.48 OK Error",
+        "1 0 EAB971444444 GHKXWHTQXXXXXXXX M11 19703-826R+17511-707R 15:53 06/03/2022 0 1 EL36806011555555 3187 14.48 OK Error",
         3187,
         14.48,
     ),
     (
-        "1 0 EAB971770016 GHKXWHTQ3JPQQSVM M11 19703-826R+17511-707R 15:53 06/03/2022 0 1 EL36806011640036 3187 14.20 OK Error",
+        "1 0 EAB971444444 GHKXWHTQXXXXXXXX M11 19703-826R+17511-707R 15:53 06/03/2022 0 1 EL36806011555555 3187 14.20 OK Error",
         3187,
         14.20,
     ),
@@ -33,8 +33,11 @@ import pytest
         19.70,
     ),
 
-    # Produce a ZeverSolarInvalidData exception
+    # Produce a ZeverSolarInvalidData exception since there is no inverter data
     # "1 1 EAB961555555 KS4GLDHNXXXXXXXX M11 16B21-663R+16B21-658R 16:41 03/02/2023 Error 0 Error",
+
+    # Produce a ZeverSolarInvalidData exception
+    # "1 0 000000000000 +16B21-658R 15:27 06/02/2023 Error 0 Error",
 ))
 def test_parse_multiple_zeversolar_hardware_version_strings(zeversolar_response: str, pac: int, energy_today: int):
     from zeversolar import ZeverSolarParser
