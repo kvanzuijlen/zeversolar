@@ -4,9 +4,9 @@ class ZeverSolarError(Exception):
     """
 
 
-class ZeverSolarNotSupported(ZeverSolarError):
+class ZeverSolarInvalidData(ZeverSolarError):
     """
-    Exception thrown when the hardware version is not yet supported
+    Exception thrown when invalid inverter data is returned
     """
 
 
