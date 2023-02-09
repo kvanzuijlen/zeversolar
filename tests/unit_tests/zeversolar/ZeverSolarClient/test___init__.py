@@ -5,7 +5,7 @@ import pytest_mock
 @pytest.mark.parametrize("host", ("mock_host", "http://mock_host"))
 def test___init__(mocker: pytest_mock.MockerFixture, host: str):
     from zeversolar import ZeverSolarClient
-    mock_self = mocker.Mock(ZeverSolarClient)
+    mock_self = mocker.Mock(spec=ZeverSolarClient)
 
     ZeverSolarClient.__init__(self=mock_self, host=host)
 

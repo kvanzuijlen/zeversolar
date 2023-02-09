@@ -88,8 +88,8 @@ class ZeverSolarParser:
 
         try:
             num_inverters = int(response_parts[Values.NUM_INVERTERS])
-        except ValueError:
-            raise ZeverSolarInvalidData()
+        except ValueError as exception:
+            raise ZeverSolarInvalidData() from exception
 
         if num_inverters < 1:
             raise ZeverSolarInvalidData()
@@ -106,26 +106,26 @@ class ZeverSolarParser:
             index += 1
             try:
                 pac = Watt(int(response_parts[index]))
-            except ValueError:
-                raise ZeverSolarInvalidData()
+            except ValueError as exception:
+                raise ZeverSolarInvalidData() from exception
         index += 1
 
         try:
             energy_today = kWh(self._fix_leading_zero(response_parts[index]))
-        except ValueError:
-            raise ZeverSolarInvalidData()
+        except ValueError as exception:
+            raise ZeverSolarInvalidData() from exception
         index += 1
 
         try:
             status = StatusEnum(response_parts[index].upper())
-        except ValueError:
-            raise ZeverSolarInvalidData()
+        except ValueError as exception:
+            raise ZeverSolarInvalidData() from exception
         index += 1
 
         try:
             meter_status = StatusEnum(response_parts[index].upper())
-        except ValueError:
-            raise ZeverSolarInvalidData()
+        except ValueError as exception:
+            raise ZeverSolarInvalidData() from exception
 
         return ZeverSolarData(
             wifi_enabled=wifi_enabled,
@@ -175,8 +175,6 @@ class ZeverSolarClient:
             if response.status_code == 404:
                 raise ZeverSolarHTTPNotFound() from exception
             raise ZeverSolarHTTPError() from exception
-        except Exception as exception:
-            raise ZeverSolarError() from exception
 
         return ZeverSolarParser(zeversolar_response=response.text).parse()
 
@@ -199,6 +197,9 @@ class ZeverSolarClient:
             )
         except requests.exceptions.Timeout as exception:
             raise ZeverSolarTimeout() from exception
+        except Exception as exception:
+            raise ZeverSolarError() from exception
+
         try:
             response.raise_for_status()
         except requests.exceptions.HTTPError as exception:
