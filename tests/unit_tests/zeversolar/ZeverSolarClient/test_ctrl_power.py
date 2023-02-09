@@ -5,15 +5,19 @@ from unittest.mock import call, Mock
 
 from pytest_mock import MockFixture
 
+from zeversolar import PowerMode
 from zeversolar.exceptions import ZeverSolarError, ZeverSolarTimeout, ZeverSolarHTTPNotFound, ZeverSolarHTTPError
 
 
-def test_ctrl_power(mocker: MockFixture, mock_self: Mock):
+@pytest.mark.parametrize(
+    argnames=("power_mode", "power_mode_value"),
+    argvalues=((PowerMode.ON, 0), (PowerMode.OFF, 1)),
+)
+def test_ctrl_power(mocker: MockFixture, mock_self: Mock, power_mode: PowerMode, power_mode_value: int):
     patched_post = mocker.patch("zeversolar.requests.post")
-    from zeversolar import ZeverSolarClient, PowerMode
-    mock_power_mode = mocker.Mock(spec=PowerMode).ON
+    from zeversolar import ZeverSolarClient
 
-    result = ZeverSolarClient.ctrl_power(self=mock_self, mode=mock_power_mode)
+    result = ZeverSolarClient.ctrl_power(self=mock_self, mode=power_mode)
 
     mock_self.get_data.assert_called_once()
     assert mock_self._serial_number is mock_self.get_data.return_value.serial_number
@@ -22,12 +26,12 @@ def test_ctrl_power(mocker: MockFixture, mock_self: Mock):
             url=f"http://{mock_self.host}/inv_ctrl.cgi",
             data={
                 'sn': mock_self._serial_number,
-                'mode': mock_power_mode.value,
+                'mode': power_mode_value,
             },
             timeout=mock_self._timeout,
         ),
     ])
-    assert result is mock_power_mode
+    assert result is power_mode
 
 
 @pytest.mark.parametrize(

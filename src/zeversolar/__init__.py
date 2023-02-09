@@ -10,8 +10,8 @@ import requests
 from zeversolar.exceptions import ZeverSolarTimeout, ZeverSolarHTTPError, ZeverSolarHTTPNotFound, ZeverSolarInvalidData, \
     ZeverSolarError
 
-kWh = typing.NewType("kWh", float)
-Watt = typing.NewType("Watt", int)
+kWh = typing.NewType("kWh", float)  # pragma: no mutate
+Watt = typing.NewType("Watt", int)  # pragma: no mutate
 
 
 class PowerMode(IntEnum):
@@ -160,7 +160,7 @@ class ZeverSolarClient:
         self._timeout = timedelta(seconds=10).total_seconds()
         self._serial_number: typing.Optional[str] = None
 
-    @retry.retry(exceptions=(ZeverSolarTimeout, ZeverSolarInvalidData), tries=3)
+    @retry.retry(exceptions=(ZeverSolarTimeout, ZeverSolarInvalidData), tries=3)  # pragma: no mutate
     def get_data(self) -> ZeverSolarData:
         try:
             response = requests.get(url=f"http://{self.host}/home.cgi", timeout=self._timeout)
@@ -184,7 +184,7 @@ class ZeverSolarClient:
     def power_off(self) -> PowerMode:
         return self.ctrl_power(mode=PowerMode.OFF)
 
-    @retry.retry(exceptions=ZeverSolarTimeout, tries=3)
+    @retry.retry(exceptions=ZeverSolarTimeout, tries=3)  # pragma: no mutate
     def ctrl_power(self, mode: PowerMode) -> PowerMode:
         if self._serial_number is None:
             self._serial_number = self.get_data().serial_number
