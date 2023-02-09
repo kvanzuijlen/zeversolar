@@ -166,9 +166,10 @@ class ZeverSolarClient:
         self._serial_number = MISSING
 
     async def async_get_data(self) -> ZeverSolarData:
-        exception = None
+        retries = self._retries
+
         async with aiohttp.ClientSession(timeout=self._timeout) as session:
-            for i in range(self._retries):
+            while retries:
                 try:
                     async with session.get(f"http://{self.host}/home.cgi") as resp:
                         if resp.status != 200:
@@ -176,18 +177,13 @@ class ZeverSolarClient:
                                 raise ZeverSolarHTTPNotFound()
                             raise ZeverSolarHTTPError()
                         text = await resp.text()
-                        try:
-                            data = await async_zeversolar_parse(zeversolar_response=text)
-                        except ZeverSolarInvalidData as err:
-                            exception = err
-                            if i < self._retries-1:
-                                await asyncio.sleep(self._timeout.total)
-                            continue
+                        data = await async_zeversolar_parse(zeversolar_response=text)
                         return data
-                except asyncio.TimeoutError:
-                    exception = ZeverSolarTimeout()
-                    continue
-        raise exception
+                except (asyncio.TimeoutError, ZeverSolarInvalidData):
+                    retries -= 1
+                    if retries < 1:
+                        raise
+                    await asyncio.sleep(self._timeout.total)
 
     async def async_power_on(self) -> None:
         return await self.async_ctrl_power(mode=PowerMode.ON)
