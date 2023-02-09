@@ -1,3 +1,6 @@
+import requests.exceptions
+
+
 class ZeverSolarError(Exception):
     """
     Base of all exceptions thrown by this package
@@ -10,13 +13,13 @@ class ZeverSolarInvalidData(ZeverSolarError):
     """
 
 
-class ZeverSolarTimeout(ZeverSolarError):
+class ZeverSolarTimeout(ZeverSolarError, requests.exceptions.Timeout):
     """
     Exception thrown when a timeout occurs
     """
 
 
-class ZeverSolarHTTPError(ZeverSolarError):
+class ZeverSolarHTTPError(ZeverSolarError, requests.exceptions.HTTPError):
     """
     Exception thrown when an HTTP error occurs
     """
