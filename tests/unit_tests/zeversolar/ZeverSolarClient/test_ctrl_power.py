@@ -13,22 +13,25 @@ from zeversolar.exceptions import ZeverSolarError, ZeverSolarTimeout, ZeverSolar
     argnames=("power_mode", "power_mode_value"),
     argvalues=((PowerMode.ON, 0), (PowerMode.OFF, 1)),
 )
-def test_ctrl_power(mocker: MockFixture, mock_self: Mock, power_mode: PowerMode, power_mode_value: int):
+def test_ctrl_power(mocker: MockFixture, instance: Mock, power_mode: PowerMode, power_mode_value: int):
     patched_post = mocker.patch("zeversolar.requests.post")
     from zeversolar import ZeverSolarClient
+    fake = mocker.Mock(**{
+        "instance": instance,
+    })
 
-    result = ZeverSolarClient.ctrl_power(self=mock_self, mode=power_mode)
+    result = ZeverSolarClient.ctrl_power(self=fake.instance, mode=power_mode)
 
-    mock_self.get_data.assert_called_once()
-    assert mock_self._serial_number is mock_self.get_data.return_value.serial_number
+    fake.instance.get_data.assert_called_once()
+    assert fake.instance._serial_number is fake.instance.get_data.return_value.serial_number
     patched_post.assert_has_calls(calls=[
         call(
-            url=f"http://{mock_self.host}/inv_ctrl.cgi",
+            url=f"http://{fake.instance.host}/inv_ctrl.cgi",
             data={
-                'sn': mock_self._serial_number,
+                'sn': fake.instance._serial_number,
                 'mode': power_mode_value,
             },
-            timeout=mock_self._timeout,
+            timeout=fake.instance._timeout,
         ),
     ])
     assert result is power_mode
@@ -63,7 +66,7 @@ def test_ctrl_power_exception(
         requests_side_effect: requests.exceptions.RequestException,
         response_status: typing.Optional[int],
         expected_exception: type[Exception],
-        mock_self: Mock,
+        instance: Mock,
 ):
     patched_post = mocker.patch("zeversolar.requests.post")
     if response_status is None:
@@ -73,20 +76,23 @@ def test_ctrl_power_exception(
         patched_post.return_value.status_code = response_status
 
     from zeversolar import ZeverSolarClient, PowerMode
-    mock_power_mode = mocker.Mock(spec=PowerMode).ON
+    fake = mocker.Mock(**{
+        "instance": instance,
+        "power_mode": mocker.Mock(spec=PowerMode).ON,
+    })
 
     with pytest.raises(expected_exception=expected_exception):
-        ZeverSolarClient.ctrl_power(self=mock_self, mode=mock_power_mode)
+        ZeverSolarClient.ctrl_power(self=fake.instance, mode=fake.power_mode)
 
-    mock_self.get_data.assert_called_once()
-    assert mock_self._serial_number is mock_self.get_data.return_value.serial_number
+    fake.instance.get_data.assert_called_once()
+    assert fake.instance._serial_number is fake.instance.get_data.return_value.serial_number
     patched_post.assert_has_calls(calls=[
         call.post(
-            url=f"http://{mock_self.host}/inv_ctrl.cgi",
+            url=f"http://{fake.instance.host}/inv_ctrl.cgi",
             data={
-                'sn': mock_self._serial_number,
-                'mode': mock_power_mode.value,
+                'sn': fake.instance._serial_number,
+                'mode': fake.power_mode.value,
             },
-            timeout=mock_self._timeout,
+            timeout=fake.instance._timeout,
         ),
     ])

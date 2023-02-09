@@ -37,12 +37,6 @@ import pytest
         (40, ),
         (3.85, ),
     ),
-
-    # Produce a ZeverSolarInvalidData exception since there is no inverter data
-    # "1 1 EAB961555555 KS4GLDHNXXXXXXXX M11 16B21-663R+16B21-658R 16:41 03/02/2023 Error 0 Error",
-
-    # Produce a ZeverSolarInvalidData exception
-    # "1 0 000000000000 +16B21-658R 15:27 06/02/2023 Error 0 Error",
 ))
 def test_parse_multiple_zeversolar_hardware_version_strings(
         zeversolar_response: str,

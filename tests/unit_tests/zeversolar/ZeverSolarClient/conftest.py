@@ -10,15 +10,11 @@ def patch_retry(mocker: MockFixture):
 
 
 @pytest.fixture()
-def mock_self(mocker: MockFixture):
+def instance(mocker: MockFixture):
     from datetime import timedelta
     from zeversolar import ZeverSolarClient
-    mock_host = mocker.Mock(spec=str)
-    mock_timeout = mocker.Mock(spec=timedelta)
-    mock_self = mocker.Mock(spec=ZeverSolarClient, **{
-        "host": mock_host,
+    return mocker.Mock(spec=ZeverSolarClient, **{
+        "host": mocker.Mock(spec=str),
         "_serial_number": None,
-        "_timeout": mock_timeout,
+        "_timeout": mocker.Mock(spec=timedelta),
     })
-    mock_self._serial_number = None
-    return mock_self

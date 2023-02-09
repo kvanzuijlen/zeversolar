@@ -141,11 +141,13 @@ def test_parse(
         expected_result: ZeverSolarTestData,
 ):
     from zeversolar import ZeverSolarParser, ZeverSolarData, StatusEnum
-    mock_self = mocker.Mock(spec=ZeverSolarParser, **{
-        "zeversolar_response": zeversolar_response,
+    fake = mocker.Mock(**{
+        "instance": mocker.Mock(spec=ZeverSolarParser, **{
+            "zeversolar_response": zeversolar_response,
+        })
     })
 
-    result = ZeverSolarParser.parse(self=mock_self)
+    result = ZeverSolarParser.parse(self=fake.instance)
     assert isinstance(result, ZeverSolarData)
     assert result.wifi_enabled == expected_result.wifi_enabled
     assert result.serial_or_registry_id == expected_result.serial_or_registry_id
@@ -157,7 +159,7 @@ def test_parse(
     assert result.num_inverters == expected_result.num_inverters
     assert result.serial_number == expected_result.serial_number
     assert result.pac == expected_result.pac
-    assert result.energy_today == mock_self._fix_leading_zero.return_value
+    assert result.energy_today == fake.instance._fix_leading_zero.return_value
     assert result.status is StatusEnum(expected_result.status)
 
 
@@ -242,14 +244,15 @@ def test_parse_invalid_response(
         mock_datetime.strptime.side_effect = [ValueError]
 
     from zeversolar import ZeverSolarParser
-    mock_self = mocker.Mock(spec=ZeverSolarParser, **{
-        "zeversolar_response": zeversolar_response,
+    fake = mocker.Mock(**{
+        "instance": mocker.Mock(spec=ZeverSolarParser, **{
+            "zeversolar_response": zeversolar_response,
+            "_fix_leading_zero": mocker.Mock(side_effect=[fix_leading_zero_side_effect] if fix_leading_zero_side_effect else None)
+        })
     })
-    if fix_leading_zero_side_effect:
-        mock_self._fix_leading_zero.side_effect = [fix_leading_zero_side_effect]
 
     with pytest.raises(expected_exception=expected_exception):
-        ZeverSolarParser.parse(self=mock_self)
+        ZeverSolarParser.parse(self=fake.instance)
 
     if strptime_called:
         mock_datetime.strptime.assert_called_once()

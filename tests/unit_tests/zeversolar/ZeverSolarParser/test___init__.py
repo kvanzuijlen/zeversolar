@@ -3,9 +3,11 @@ import pytest_mock
 
 def test___init__(mocker: pytest_mock.MockerFixture):
     from zeversolar import ZeverSolarParser
-    mock_self = mocker.Mock(spec=ZeverSolarParser)
-    mock_response = mocker.Mock(spec=str)
+    fake = mocker.Mock(**{
+        "instance": mocker.Mock(spec=ZeverSolarParser),
+        "response": mocker.Mock(spec=str),
+    })
 
-    ZeverSolarParser.__init__(self=mock_self, zeversolar_response=mock_response)
+    ZeverSolarParser.__init__(self=fake.instance, zeversolar_response=fake.response)
 
-    assert mock_self.zeversolar_response == mock_response
+    assert fake.instance.zeversolar_response == fake.response

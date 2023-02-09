@@ -5,9 +5,11 @@ from pytest_mock import MockFixture
 
 def test_power_on(mocker: MockFixture):
     from zeversolar import ZeverSolarClient, PowerMode
-    mock_self = mocker.Mock(spec=ZeverSolarClient)
+    fake = mocker.Mock(**{
+        "instance": mocker.Mock(spec=ZeverSolarClient),
+    })
 
-    result = ZeverSolarClient.power_on(self=mock_self)
+    result = ZeverSolarClient.power_on(self=fake.instance)
 
-    assert result is mock_self.ctrl_power.return_value
-    mock_self.assert_has_calls(calls=[call.ctrl_power(mode=PowerMode.ON)])
+    assert result is fake.instance.ctrl_power.return_value
+    fake.instance.assert_has_calls(calls=[call.ctrl_power(mode=PowerMode.ON)])

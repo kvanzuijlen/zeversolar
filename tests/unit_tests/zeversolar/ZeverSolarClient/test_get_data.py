@@ -8,17 +8,20 @@ from pytest_mock import MockFixture
 from zeversolar import ZeverSolarError, ZeverSolarTimeout, ZeverSolarHTTPNotFound, ZeverSolarHTTPError
 
 
-def test_get_data(mocker: MockFixture, mock_self: Mock):
+def test_get_data(mocker: MockFixture, instance: Mock):
     patched_get = mocker.patch("zeversolar.requests.get")
     patched_parser = mocker.patch("zeversolar.ZeverSolarParser")
     from zeversolar import ZeverSolarClient
+    fake = mocker.Mock(**{
+        "instance": instance,
+    })
 
-    result = ZeverSolarClient.get_data(self=mock_self)
+    result = ZeverSolarClient.get_data(self=fake.instance)
 
     patched_get.assert_has_calls(calls=[
         call(
-            url=f"http://{mock_self.host}/home.cgi",
-            timeout=mock_self._timeout,
+            url=f"http://{fake.instance.host}/home.cgi",
+            timeout=fake.instance._timeout,
         ),
     ])
     assert result is patched_parser.return_value.parse.return_value
@@ -57,7 +60,7 @@ def test_get_data_exception(
         requests_side_effect: requests.exceptions.RequestException,
         response_status: typing.Optional[int],
         expected_exception: type[Exception],
-        mock_self: Mock,
+        instance: Mock,
 ):
     patched_get = mocker.patch("zeversolar.requests.get")
     patched_parser = mocker.patch("zeversolar.ZeverSolarParser")
@@ -68,14 +71,17 @@ def test_get_data_exception(
         patched_get.return_value.status_code = response_status
 
     from zeversolar import ZeverSolarClient
+    fake = mocker.Mock(**{
+        "instance": instance,
+    })
 
     with pytest.raises(expected_exception=expected_exception):
-        ZeverSolarClient.get_data(self=mock_self)
+        ZeverSolarClient.get_data(self=fake.instance)
 
     patched_get.assert_has_calls(calls=[
         call(
-            url=f"http://{mock_self.host}/home.cgi",
-            timeout=mock_self._timeout,
+            url=f"http://{fake.instance.host}/home.cgi",
+            timeout=fake.instance._timeout,
         ),
     ])
     patched_parser.assert_not_called()
