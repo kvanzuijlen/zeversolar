@@ -62,7 +62,7 @@ class ZeverSolarParser:
     def parse(self) -> ZeverSolarData:
         response_parts = self.zeversolar_response.split()
 
-        if len(response_parts) <= Values.NUM_INVERTERS:
+        if len(response_parts) <= Values.NUM_INVERTERS.value:
             raise ZeverSolarInvalidData()
 
         wifi_enabled = response_parts[Values.WIFI_ENABLED] == "1"
@@ -94,7 +94,7 @@ class ZeverSolarParser:
         if num_inverters < 1:
             raise ZeverSolarInvalidData()
 
-        index = Values.INVERTERS
+        index = Values.INVERTERS.value
 
         serial_number = response_parts[index]
         index += 1
@@ -158,7 +158,7 @@ class ZeverSolarClient:
             host = f"http://{host}"
         self.host = urllib.parse.urlparse(url=host).netloc.strip("/")
         self._timeout = timedelta(seconds=10).total_seconds()
-        self._serial_number = None
+        self._serial_number: typing.Optional[str] = None
 
     @retry.retry(exceptions=(ZeverSolarTimeout, ZeverSolarInvalidData), tries=3)
     def get_data(self) -> ZeverSolarData:

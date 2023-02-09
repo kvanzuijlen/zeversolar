@@ -162,52 +162,70 @@ def test_parse(
 
 
 @pytest.mark.parametrize(
-    argnames=["zeversolar_response", "expected_exception", "fix_leading_zero_side_effect"],
+    argnames=["zeversolar_response", "expected_exception", "fix_leading_zero_side_effect", "invalid_date", "strptime_called"],
     argvalues=(
         (
             "1 1 EAB961555555 KS4GLDHNXXXXXXXX M11 16B21-663R+16B21-658R 16:41 03/02/2023 Error 0 Error",
             ZeverSolarInvalidData,
             None,
+            False,
+            True,
         ),
         (
             "1 0 000000000000 +16B21-658R 15:27 06/02/2023 Error 0 Error",
             ZeverSolarInvalidData,
             None,
+            False,
+            False,
         ),
         (
-            "1 1 EA3061888888 FGSJDHNXXXXXXXX M10 16B21-663R+16B21-658R 16:59 06/13/2023 Error 1 BS0004016666666 40 3.85 OK Error",
+            "1 1 EA3061888888 FGSJDHNXXXXXXXX M10 16B21-663R+16B21-658R 16:59 invalid Error 1 BS0004016666666 40 3.85 OK Error",
             ZeverSolarInvalidData,
             None,
+            True,
+            True,
         ),
         (
             "1 1 EA3061888888 FGSJDHNXXXXXXXX M10 16B21-663R+16B21-658R 16:59 06/02/2023 Unknown 1 BS0004016666666 40 3.85 OK Error",
             ZeverSolarInvalidData,
             None,
+            False,
+            True,
         ),
         (
             "1 1 EA3061888888 FGSJDHNXXXXXXXX M10 16B21-663R+16B21-658R 16:59 06/02/2023 Error One BS0004016666666 40 3.85 OK Error",
             ZeverSolarInvalidData,
             None,
+            False,
+            True,
         ),
         (
             "1 1 EA3061888888 FGSJDHNXXXXXXXX M10 16B21-663R+16B21-658R 16:59 06/02/2023 Error 1 BS0004016666666 40.5 3.85 OK Error",
             ZeverSolarInvalidData,
             None,
+            False,
+            True,
         ),
         (
             "1 1 EA3061888888 FGSJDHNXXXXXXXX M10 16B21-663R+16B21-658R 16:59 06/02/2023 Error 1 BS0004016666666 40 Unknown OK Error",
             ZeverSolarInvalidData,
             ValueError,
+            False,
+            True,
         ),
         (
             "1 1 EA3061888888 FGSJDHNXXXXXXXX M10 16B21-663R+16B21-658R 16:59 06/02/2023 Error 1 BS0004016666666 40 3.85 Unknown Error",
             ZeverSolarInvalidData,
             None,
+            False,
+            True,
         ),
         (
             "1 1 EA3061888888 FGSJDHNXXXXXXXX M10 16B21-663R+16B21-658R 16:59 06/02/2023 Error 1 BS0004016666666 40 3.85 OK Unknown",
             ZeverSolarInvalidData,
             None,
+            False,
+            True,
         ),
     )
 )
@@ -216,7 +234,13 @@ def test_parse_invalid_response(
         zeversolar_response: str,
         expected_exception: type[Exception],
         fix_leading_zero_side_effect: type[Exception],
+        invalid_date: bool,
+        strptime_called: bool,
 ):
+    mock_datetime = mocker.patch("zeversolar.datetime")
+    if invalid_date:
+        mock_datetime.strptime.side_effect = [ValueError]
+
     from zeversolar import ZeverSolarParser
     mock_self = mocker.Mock(spec=ZeverSolarParser, **{
         "zeversolar_response": zeversolar_response,
@@ -226,3 +250,8 @@ def test_parse_invalid_response(
 
     with pytest.raises(expected_exception=expected_exception):
         ZeverSolarParser.parse(self=mock_self)
+
+    if strptime_called:
+        mock_datetime.strptime.assert_called_once()
+    else:
+        mock_datetime.strptime.assert_not_called()
