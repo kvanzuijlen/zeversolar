@@ -181,7 +181,7 @@ class ZeverSolarClient:
                         except ZeverSolarInvalidData as err:
                             exception = err
                             if i < self._retries-1:
-                                asyncio.sleep(self._timeout.total)
+                                await asyncio.sleep(self._timeout.total)
                             continue
                         return data
                 except asyncio.TimeoutError:
