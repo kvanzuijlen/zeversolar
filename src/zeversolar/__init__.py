@@ -54,7 +54,7 @@ class ZeverSolarData:
     status: StatusEnum
 
 
-async def zeversolar_parse(zeversolar_response: str) -> ZeverSolarData:
+async def async_zeversolar_parse(zeversolar_response: str) -> ZeverSolarData:
     response_parts = zeversolar_response.split()
 
     if len(response_parts) <= Values.NUM_INVERTERS:
@@ -112,7 +112,7 @@ async def zeversolar_parse(zeversolar_response: str) -> ZeverSolarData:
     index += 1
 
     try:
-        energy_today = kWh(await _fix_leading_zero(response_parts[index]))
+        energy_today = kWh(await _async_fix_leading_zero(response_parts[index]))
     except ValueError:
         raise ZeverSolarInvalidData()
     index += 1
@@ -148,7 +148,7 @@ async def zeversolar_parse(zeversolar_response: str) -> ZeverSolarData:
     )
 
 
-async def _fix_leading_zero(string_value: str) -> float:
+async def _async_fix_leading_zero(string_value: str) -> float:
     split_values = string_value.split(".")
     if len(decimals := split_values[1]) == 1:
         string_value = f"{split_values[0]}.0{decimals}"
@@ -156,7 +156,7 @@ async def _fix_leading_zero(string_value: str) -> float:
 
 
 class ZeverSolarClient:
-    def __init__(self, host: str):
+    def __init__(self, host: str) -> None:
         if "http" not in host:
             # noinspection HttpUrlsUsage
             host = f"http://{host}"
@@ -165,7 +165,7 @@ class ZeverSolarClient:
         self._retries = 3
         self._serial_number = MISSING
 
-    async def get_data(self) -> ZeverSolarData:
+    async def async_get_data(self) -> ZeverSolarData:
         exception = None
         async with aiohttp.ClientSession(timeout=self._timeout) as session:
             for i in range(self._retries):
@@ -177,7 +177,7 @@ class ZeverSolarClient:
                             raise ZeverSolarHTTPError()
                         text = await resp.text()
                         try:
-                            data = await zeversolar_parse(zeversolar_response=text)
+                            data = await async_zeversolar_parse(zeversolar_response=text)
                         except ZeverSolarInvalidData as err:
                             exception = err
                             if i < self._retries-1:
@@ -189,15 +189,15 @@ class ZeverSolarClient:
                     continue
         raise exception
 
-    async def power_on(self):
-        return await self.ctrl_power(mode=PowerMode.ON)
+    async def async_power_on(self) -> None:
+        return await self.async_ctrl_power(mode=PowerMode.ON)
 
-    async def power_off(self):
-        return await self.ctrl_power(mode=PowerMode.OFF)
+    async def async_power_off(self) -> None:
+        return await self.async_ctrl_power(mode=PowerMode.OFF)
 
-    async def ctrl_power(self, mode: PowerMode):
+    async def async_ctrl_power(self, mode: PowerMode) -> None:
         if self._serial_number is MISSING:
-            data = await self.get_data()
+            data = await self.async_get_data()
             self._serial_number = data.serial_number
 
         async with aiohttp.ClientSession(timeout=self._timeout) as session:
