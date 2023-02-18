@@ -3,14 +3,15 @@ import typing
 import urllib.parse
 from datetime import datetime, timedelta
 from enum import Enum, IntEnum
-from dataclasses import MISSING
 
+import retry
 import requests
 
-from zeversolar.exceptions import ZeverSolarTimeout, ZeverSolarHTTPError, ZeverSolarHTTPNotFound, ZeverSolarInvalidData
+from zeversolar.exceptions import ZeverSolarTimeout, ZeverSolarHTTPError, ZeverSolarHTTPNotFound, ZeverSolarInvalidData, \
+    ZeverSolarError
 
-kWh = typing.NewType("kWh", float)
-Watt = typing.NewType("Watt", int)
+kWh = typing.NewType("kWh", float)  # pragma: no mutate
+Watt = typing.NewType("Watt", int)  # pragma: no mutate
 
 
 class PowerMode(IntEnum):
@@ -45,12 +46,13 @@ class ZeverSolarData:
     hardware_version: str
     software_version: str
     reported_datetime: datetime
-    communication_status: bool
+    communication_status: StatusEnum
     num_inverters: int
     serial_number: str
     pac: Watt
     energy_today: kWh
     status: StatusEnum
+    meter_status: StatusEnum
 
 
 class ZeverSolarParser:
@@ -60,7 +62,7 @@ class ZeverSolarParser:
     def parse(self) -> ZeverSolarData:
         response_parts = self.zeversolar_response.split()
 
-        if len(response_parts) <= Values.NUM_INVERTERS:
+        if len(response_parts) <= Values.NUM_INVERTERS.value:
             raise ZeverSolarInvalidData()
 
         wifi_enabled = response_parts[Values.WIFI_ENABLED] == "1"
@@ -73,32 +75,26 @@ class ZeverSolarParser:
         reported_date = response_parts[Values.REPORTED_DATE]
         try:
             reported_datetime = datetime.strptime(f"{reported_date} {reported_time}", "%d/%m/%Y %H:%M")
-        except ValueError:
-            raise ZeverSolarInvalidData()
+        except ValueError as exception:
+            raise ZeverSolarInvalidData() from exception
 
-        communication_status = response_parts[Values.COMMUNICATION_STATUS]
-        if communication_status.startswith(StatusEnum.OK.value):
-            communication_status = True
-        elif communication_status.startswith(StatusEnum.ERROR.value):
-            communication_status = False
-        else:
-            communication_status = communication_status == "0"
+        communication_status_value = response_parts[Values.COMMUNICATION_STATUS]
+        try:
+            communication_status = StatusEnum(communication_status_value.upper())
+        except ValueError as exception:
+            if not communication_status_value.isnumeric():
+                raise ZeverSolarInvalidData from exception
+            communication_status = StatusEnum.OK if communication_status_value == "0" else StatusEnum.ERROR
 
         try:
             num_inverters = int(response_parts[Values.NUM_INVERTERS])
-        except ValueError:
-            raise ZeverSolarInvalidData()
+        except ValueError as exception:
+            raise ZeverSolarInvalidData() from exception
 
-        # inverters = {}  # {serial_number: pac,energy_today,status}
-        # for i in range(min(num_inverters, 5)):
-        # Just parsing one inverter for now though
         if num_inverters < 1:
             raise ZeverSolarInvalidData()
 
-        if len(response_parts) < Values.INVERTERS + num_inverters*4 + 1:
-            raise ZeverSolarInvalidData()
-
-        index = Values.INVERTERS
+        index = Values.INVERTERS.value
 
         serial_number = response_parts[index]
         index += 1
@@ -110,30 +106,26 @@ class ZeverSolarParser:
             index += 1
             try:
                 pac = Watt(int(response_parts[index]))
-            except ValueError:
-                raise ZeverSolarInvalidData()
+            except ValueError as exception:
+                raise ZeverSolarInvalidData() from exception
         index += 1
 
         try:
             energy_today = kWh(self._fix_leading_zero(response_parts[index]))
-        except ValueError:
-            raise ZeverSolarInvalidData()
+        except ValueError as exception:
+            raise ZeverSolarInvalidData() from exception
         index += 1
 
         try:
-            status = StatusEnum(response_parts[index])
-        except ValueError:
-            raise ZeverSolarInvalidData()
+            status = StatusEnum(response_parts[index].upper())
+        except ValueError as exception:
+            raise ZeverSolarInvalidData() from exception
         index += 1
 
-        # We don't necessarily know how many fields in each inverter if more than one
-        # try:
-        #     meter_status = StatusEnum(response_parts[index])
-        # except ValueError:
-        #     raise ZeverSolarInvalidData()
-        # index += 1
-        # if len(response_parts) < index + 4:
-        #     raise ZeverSolarInvalidData()
+        try:
+            meter_status = StatusEnum(response_parts[index].upper())
+        except ValueError as exception:
+            raise ZeverSolarInvalidData() from exception
 
         return ZeverSolarData(
             wifi_enabled=wifi_enabled,
@@ -141,13 +133,14 @@ class ZeverSolarParser:
             registry_key=registry_key,
             hardware_version=hardware_version,
             software_version=software_version,
+            reported_datetime=reported_datetime,
             communication_status=communication_status,
             num_inverters=num_inverters,
             serial_number=serial_number,
             pac=pac,
             energy_today=energy_today,
             status=status,
-            reported_datetime=reported_datetime,
+            meter_status=meter_status,
         )
 
     @staticmethod
@@ -164,50 +157,54 @@ class ZeverSolarClient:
             # noinspection HttpUrlsUsage
             host = f"http://{host}"
         self.host = urllib.parse.urlparse(url=host).netloc.strip("/")
-        self._timeout = timedelta(seconds=5).total_seconds()
-        self._retries = 3
-        self._serial_number = MISSING
+        self._timeout = timedelta(seconds=10).total_seconds()
+        self._serial_number: typing.Optional[str] = None
 
+    @retry.retry(exceptions=(ZeverSolarTimeout, ZeverSolarInvalidData), tries=3)  # pragma: no mutate
     def get_data(self) -> ZeverSolarData:
-        exception = None
-        for _ in range(self._retries):
-            try:
-                response = requests.get(url=f"http://{self.host}/home.cgi", timeout=self._timeout)
-            except requests.exceptions.Timeout:
-                exception = ZeverSolarTimeout()
-                continue
-            if response.status_code != 200:
-                if response.status_code == 404:
-                    raise ZeverSolarHTTPNotFound()
-                raise ZeverSolarHTTPError()
-            try:
-                data = ZeverSolarParser(zeversolar_response=response.text).parse()
-            except ZeverSolarInvalidData as e:
-                exception = e
-                continue
-            return data
-        raise exception
+        try:
+            response = requests.get(url=f"http://{self.host}/home.cgi", timeout=self._timeout)
+        except requests.exceptions.Timeout as exception:
+            raise ZeverSolarTimeout() from exception
+        except Exception as exception:
+            raise ZeverSolarError() from exception
 
-    def power_on(self):
-        return self.ctrl_power(mode=PowerMode.ON)
-
-    def power_off(self):
-        return self.ctrl_power(mode=PowerMode.OFF)
-
-    def ctrl_power(self, mode: PowerMode):
-        if self._serial_number is MISSING:
-            self._serial_number = self.get_data().serial_number
-
-        response = requests.post(
-            url=f"http://{self.host}/inv_ctrl.cgi",
-            data={'sn': self._serial_number, 'mode': mode.value},
-            timeout=self._timeout,
-        )
         try:
             response.raise_for_status()
-        except requests.exceptions.Timeout:
-            raise ZeverSolarTimeout()
-        except requests.exceptions.HTTPError:
+        except requests.exceptions.HTTPError as exception:
             if response.status_code == 404:
-                raise ZeverSolarHTTPNotFound()
-            raise ZeverSolarHTTPError()
+                raise ZeverSolarHTTPNotFound() from exception
+            raise ZeverSolarHTTPError() from exception
+
+        return ZeverSolarParser(zeversolar_response=response.text).parse()
+
+    def power_on(self) -> PowerMode:
+        return self.ctrl_power(mode=PowerMode.ON)
+
+    def power_off(self) -> PowerMode:
+        return self.ctrl_power(mode=PowerMode.OFF)
+
+    @retry.retry(exceptions=ZeverSolarTimeout, tries=3)  # pragma: no mutate
+    def ctrl_power(self, mode: PowerMode) -> PowerMode:
+        if self._serial_number is None:
+            self._serial_number = self.get_data().serial_number
+
+        try:
+            response = requests.post(
+                url=f"http://{self.host}/inv_ctrl.cgi",
+                data={'sn': self._serial_number, 'mode': mode.value},
+                timeout=self._timeout,
+            )
+        except requests.exceptions.Timeout as exception:
+            raise ZeverSolarTimeout() from exception
+        except Exception as exception:
+            raise ZeverSolarError() from exception
+
+        try:
+            response.raise_for_status()
+        except requests.exceptions.HTTPError as exception:
+            if response.status_code == 404:
+                raise ZeverSolarHTTPNotFound() from exception
+            raise ZeverSolarHTTPError() from exception
+
+        return mode
