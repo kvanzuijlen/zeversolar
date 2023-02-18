@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "zeversolar"
-version = "0.3.0"
+version = "0.3.1"
 description = ""
 authors = ["Koen van Zuijlen <8818390+kvanzuijlen@users.noreply.github.com>"]
 
