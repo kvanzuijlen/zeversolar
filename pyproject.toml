@@ -3,6 +3,7 @@ name = "zeversolar"
 version = "0.3.1"
 description = ""
 authors = ["Koen van Zuijlen <8818390+kvanzuijlen@users.noreply.github.com>"]
+license = "Apache-2.0"
 
 [tool.poetry.dependencies]
 python = "^3.10"
