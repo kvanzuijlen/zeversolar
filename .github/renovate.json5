@@ -1,0 +1,17 @@
+{
+  $schema: "https://docs.renovatebot.com/renovate-schema.json",
+  extends: [
+    "config:best-practices"
+  ],
+  customManagers: [
+    {
+      customType: "regex",
+      matchStrings: [
+        ".*?_VERSION: (?<currentValue>.*) # renovate: datasource=(?<datasource>.+) depName=(?<depName>.+)",
+      ],
+      managerFilePatterns: [
+        "/^\\.github/workflows/.+\\.ya?ml$/",
+      ]
+    },
+  ],
+}

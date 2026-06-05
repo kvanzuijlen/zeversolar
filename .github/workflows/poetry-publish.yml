@@ -16,18 +16,20 @@ permissions:
   contents: read
 
 jobs:
-  deploy:
+  publish:
+    env:
+      POETRY_VERSION: 2.4.1 # renovate: datasource=github-tags depName=python-poetry/poetry
 
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
     - name: Install poetry
-      run: pipx install poetry
+      run: pipx install poetry==${{ env.POETRY_VERSION }}
     - name: Setup Python
-      uses: actions/setup-python@v4.5.0
+      uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
       with:
-        python-version: '3.10'
+        python-version-file: "pyproject.toml"
         cache: poetry
     - name: Install dependencies
       run: poetry install

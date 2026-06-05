@@ -8,31 +8,34 @@ on:
 jobs:
   ci:
     name: CI
+    env:
+      POETRY_VERSION: 2.4.1 # renovate: datasource=github-tags depName=python-poetry/poetry
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          fetch-depth: 0  # Shallow clones should be disabled for a better relevancy of analysis
+          fetch-depth: 0 # Shallow clones should be disabled for a better relevancy of analysis
       - name: Install poetry
-        run: pipx install poetry
+        run: pipx install poetry==${{ env.POETRY_VERSION }}
       - name: Setup Python
-        uses: actions/setup-python@v4.5.0
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
         with:
-          python-version: '3.10'
+          python-version-file: "pyproject.toml"
           cache: poetry
       - run: poetry install
       - run: poetry run pytest tests/ --cov=. --cov-report xml
-      - name: SonarQube Scan
-        uses: SonarSource/sonarqube-scan-action@7006c4492b2e0ee0f816d36501671557c97f5995 # v8.1.0
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      - name: Save PR information
+        if: github.event_name == 'pull_request'
+        run: |
+          echo ${{ github.event.number }} > pr-number.txt
+          echo ${{ github.event.pull_request.base.ref }} > pr-base.txt
+          echo ${{ github.event.pull_request.head.ref }} > pr-head.txt
+      - name: Upload artifacts
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          args: >
-            -Dsonar.python.coverage.reportPaths=coverage.xml
-          # Check the Quality Gate status.
-      - name: SonarQube Quality Gate check
-        id: sonarqube-quality-gate-check
-        uses: sonarsource/sonarqube-quality-gate-action@cf038b0e0cdecfa9e56c198bbb7d21d751d62c3b # v1.2.0
-        timeout-minutes: 5
-        env:
-         SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          name: ci-artifacts
+          path: |
+            coverage.xml
+            pr-number.txt
+            pr-base.txt
+            pr-head.txt
