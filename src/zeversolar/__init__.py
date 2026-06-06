@@ -311,7 +311,6 @@ class ZeverSolarClient:
                 # Use Event.wait() so the sleep is interruptible when stop is set.
                 stop.wait(timeout=sleep_interval)
 
-    @retry.retry(exceptions=ZeverSolarTimeout, tries=3)  # pragma: no mutate
     def _write_power_limit(self, limit_pct: int) -> None:
         """POST a single power limit step to the inverter.
 
